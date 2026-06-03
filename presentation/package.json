@@ -1,0 +1,17 @@
+{
+  "name": "future-coach-presentation",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Generates the narrated screen-recording demo of the deployed Future Coach Intelligence app.",
+  "scripts": {
+    "tts": "node tts.mjs",
+    "record": "node record.mjs",
+    "compose": "node compose.mjs",
+    "build": "node tts.mjs && node record.mjs && node compose.mjs"
+  },
+  "dependencies": {
+    "puppeteer": "^23.0.0",
+    "puppeteer-screen-recorder": "^3.0.6"
+  }
+}

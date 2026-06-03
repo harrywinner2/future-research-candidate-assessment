@@ -41,3 +41,7 @@ neo4j-logs/
 .idea/
 .vscode/
 *.log
+
+# Presentation pipeline artifacts (keep scripts, not media/deps)
+presentation/node_modules/
+presentation/out/

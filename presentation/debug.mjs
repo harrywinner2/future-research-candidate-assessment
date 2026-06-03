@@ -1,0 +1,15 @@
+import puppeteer from 'puppeteer';
+const URL = 'https://future-coach-production.up.railway.app';
+const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage'], defaultViewport:{width:1440,height:900} });
+const page = await browser.newPage();
+page.on('console', m => console.log('PAGE LOG>', m.type(), m.text().slice(0,200)));
+page.on('pageerror', e => console.log('PAGE ERROR>', e.message.slice(0,300)));
+page.on('requestfailed', r => console.log('REQ FAIL>', r.url().slice(0,80), r.failure()?.errorText));
+const resp = await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+console.log('HTTP', resp.status());
+await new Promise(r=>setTimeout(r,7000));
+console.log('TITLE:', await page.title());
+console.log('navItems:', await page.evaluate(()=>document.querySelectorAll('.nav-item').length));
+console.log('BODY TEXT (300):', (await page.evaluate(()=>document.body.innerText)).slice(0,300).replace(/\n/g,' | '));
+await page.screenshot({ path:'out/debug.png' });
+await browser.close();

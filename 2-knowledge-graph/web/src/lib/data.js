@@ -201,11 +201,14 @@
     mbr.injuries.forEach(inj => {
       add({ id: inj.id, type: 'Injury', label: inj.label, status: inj.status, severity: inj.severity });
       link(mbr.id, inj.id, 'HAS_INJURY');
-      const jid = 'joint_' + inj.joint.replace(/\W/g, '');
-      add({ id: jid, type: 'Joint', label: inj.joint });
-      link(inj.id, jid, 'AFFECTS_JOINT');
       // context signal
       if (inj.source) { add({ id: inj.source, type: 'ContextSignal', label: signalText(inj.source) }); link(inj.source, inj.id, 'MENTIONED_IN'); }
+      // An injury may have no mapped joint (e.g. a chat signal not yet localised);
+      // skip joint/contraindication edges rather than crash.
+      if (!inj.joint) return;
+      const jid = 'joint_' + String(inj.joint).replace(/\W/g, '');
+      add({ id: jid, type: 'Joint', label: inj.joint });
+      link(inj.id, jid, 'AFFECTS_JOINT');
       if (inj.status === 'active' || inj.status === 'improving') {
         (live.exercises || exercises).filter(ex => ex.joints_loaded.includes(inj.joint)).slice(0, 7).forEach(ex => {
           add({ id: ex.id, type: 'Exercise', label: ex.name, ex });
