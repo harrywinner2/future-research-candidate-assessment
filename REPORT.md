@@ -5,6 +5,8 @@
 
 **Repo (submission):** https://github.com/harrywinner2/future-research-candidate-assessment
 **Live demo:** https://future-coach-production.up.railway.app
+**Demo video (5 min):** https://youtu.be/aMN48IvN5gs — scripted & directed by the human author; the
+voiceover is AI-generated (OpenAI TTS) for audio quality only. Reproducible pipeline in `presentation/`.
 **Date started:** 2026-06-02
 
 ---
