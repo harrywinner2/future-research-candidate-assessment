@@ -1,55 +1,71 @@
-# AI Engineer Take-Home
+# Future · Coach Intelligence
 
-Take-home projects for AI engineering candidates, built around a fitness coaching domain. We'll tell you which assessment to complete — you don't need to do both.
+**A coach-facing AI assistant where every injury-aware recommendation is explained by a knowledge graph.**
+One product that satisfies both AI-engineering take-homes in this repo — a **Knowledge-Graph coaching
+platform** (GraphRAG, injury-aware, explainable) and a **multi-agent system** (LangGraph hub with
+LLM-routed sub-agents) — sharing one backend, one design system, and one deployed app.
 
-## Assessments
+🔗 **Live demo:** https://future-coach-production.up.railway.app
+📦 **Submission report (decisions, architecture, screen matrix, demo script):** [`REPORT.md`](./REPORT.md)
+📄 **Backend deep-dive + "How I'd evaluate in production":** [`2-knowledge-graph/README.md`](./2-knowledge-graph/README.md)
 
-The two are listed by scope. Each folder is self-contained and includes the `exercises.json` dataset.
+> **Synthetic data only.** A persistent banner and ingestion guards enforce it; do not enter real member data.
 
-| # | Assessment | Focus | Time |
-|---|------------|-------|------|
-| 1 | [`1-multi-agent/`](./1-multi-agent/ASSESSMENT.md) | **Multi-agent system** — a LangGraph hub agent routing requests to specialized sub-agents | 2–3 hours |
-| 2 | [`2-knowledge-graph/`](./2-knowledge-graph/KNOWLEDGE_GRAPH_ASSESSMENT.md) | **Knowledge graph coaching platform** — GraphRAG over a member's context for safe, explainable recommendations | 1–2 days |
+---
 
-### 1 · Multi-agent system — at a glance
+## What it does
 
-- **Stack:** Python, LangGraph, LangChain, any LLM provider
-- **Goal:** A small system that works end-to-end. Correctness over completeness.
+A coach can ask things like *"Build this member a lower-body session for this week,"* *"Why did you skip
+barbell squats for her?"*, or *"What should I watch for?"* — and the system:
 
-Build a hub agent that routes user input across three intents:
+- ingests member context (profile, injuries, chat signals) into a **knowledge graph**,
+- retrieves the safety-relevant slice via **GraphRAG** (graph traversal + vector search),
+- generates an **injury-aware** workout (an exercise loading an injured joint never appears),
+- **explains** each decision by pointing at graph relationships (`Member → HAS_INJURY → knee →
+  LOADS_JOINT ← Exercise`), and
+- recovers gracefully when retrieval is thin, equipment is missing, or the model returns something invalid.
 
-| Route | Example |
-|-------|---------|
-| `COACH` | "What muscles does a deadlift work?" |
-| `WORKOUT_GENERATE` | "Build me a 30 min upper body session with dumbbells" |
-| `WORKOUT_LOG` | "I just did 3x10 bench press at 185 lbs" |
+The multi-agent track exposes the same hub as a router that classifies each request with **LLM structured
+output** and dispatches to coach / workout-generator / workout-logger sub-agents.
 
-See [`1-multi-agent/ASSESSMENT.md`](./1-multi-agent/ASSESSMENT.md) for the full spec.
+## Architecture
 
-### 2 · Knowledge graph coaching platform — at a glance
+```
+web/ (Vite + React, 31 screens)  ──build──►  FastAPI serves SPA + REST API
+                                                  │
+   LangGraph hub: router → retrieve → dispatch → final (safety review)
+   GraphRAG (vector + graph traversal, token-budgeted) · 3-layer safety
+   LLM: openai | anthropic | fake (runtime-switchable in the Settings screen)
+   GraphClient Protocol → Neo4j (docker compose) | in-memory (tests / live demo)
+```
 
-- **Stack:** Python, TypeScript, LangChain/LangGraph, a graph database (Neo4j preferred), any LLM provider
-- **Goal:** Ingest member context into a knowledge graph, retrieve the relevant slice via GraphRAG, and generate **injury-aware, explainable** recommendations.
+## Run it
 
-See [`2-knowledge-graph/KNOWLEDGE_GRAPH_ASSESSMENT.md`](./2-knowledge-graph/KNOWLEDGE_GRAPH_ASSESSMENT.md) for the full spec.
+**Full stack, one command (real Neo4j database):**
+```bash
+cd 2-knowledge-graph
+cp .env.example .env          # optional: OPENAI_API_KEY + COACH_KG_LLM_PROVIDER=openai
+docker compose up -d --build  # Neo4j + app, seeded on boot
+open http://localhost:8000
+```
 
-## The dataset
+**Frontend dev (hot reload) against the API:**
+```bash
+cd 2-knowledge-graph && uvicorn app.main:app --reload      # :8000 (memory + fake LLM by default)
+cd web && npm install && npm run dev                       # :5173
+```
 
-`exercises.json` contains 50 exercises. Key fields:
+**Tests (fully offline):** backend `cd 2-knowledge-graph && pytest` · frontend `cd 2-knowledge-graph/web && npm test`
 
-| Field | Meaning |
-|-------|---------|
-| `muscle_groups` | Primary muscles worked |
-| `joints_loaded` | Joints under load (useful for injury avoidance) |
-| `movement_patterns` | e.g. `upper push - horizontal` |
-| `equipment_required` | Equipment needed |
-| `priority_tier` | Programming priority (1 = highest) |
-| `is_bilateral` / `bilateral_pair_id` | Single-side exercises and their paired side |
+## Repo layout
 
-## How to submit
+| Path | What |
+|---|---|
+| `2-knowledge-graph/app/` | FastAPI + LangGraph hub + GraphRAG + safety + ingestion (the backend) |
+| `2-knowledge-graph/web/` | Vite + React frontend (all 31 screens), wired to the API |
+| `2-knowledge-graph/tests/` | Backend tests (injury filter, retrieval, validator, router, logger, hub e2e, API) |
+| `1-multi-agent/` , `2-knowledge-graph/*ASSESSMENT.md` | The original take-home specs |
+| `screens.md` | The authoritative UI specification |
+| `REPORT.md` | Full build report + presentation-video script |
 
-1. Build in a **public** GitHub repo.
-2. Include a runnable demo or transcript, and a README covering setup and **how you'd evaluate the system in production**.
-3. Send us the link.
-
-If anything in the spec is ambiguous, make a reasonable decision and document it — we value clear tradeoff reasoning.
+Built with FastAPI, LangGraph/LangChain, Pydantic, Neo4j, React/Vite, and OpenAI. Deployed on Railway.

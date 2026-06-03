@@ -71,12 +71,12 @@ class AnthropicLLM:
             getattr(block, "text", "") for block in response.content if hasattr(block, "text")
         )
         usage = getattr(response, "usage", None)
-        return LLMResponse(
-            text=text,
-            model_id=self.model_id,
-            tokens_prompt=getattr(usage, "input_tokens", 0) or 0,
-            tokens_completion=getattr(usage, "output_tokens", 0) or 0,
-        )
+        pt = getattr(usage, "input_tokens", 0) or 0
+        ct = getattr(usage, "output_tokens", 0) or 0
+        from app.observability.trace import record_stage_usage
+
+        record_stage_usage(pt, ct, self.model_id)
+        return LLMResponse(text=text, model_id=self.model_id, tokens_prompt=pt, tokens_completion=ct)
 
     async def structured_complete(
         self,

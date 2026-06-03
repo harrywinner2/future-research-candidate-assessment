@@ -19,6 +19,7 @@ from app.agents.prompts import GENERATOR, render
 from app.agents.state import HubState
 from app.agents.tools import SearchExerciseHit, SearchExercisesInput, search_exercises
 from app.graph.client import GraphClient
+from app.graph.schema import NodeType
 from app.llm.client import LLMClient
 from app.observability.trace import with_stage
 from app.safety.policy import SafetyPolicy
@@ -178,6 +179,16 @@ async def _generate_once(
             )
         sections.append(RecommendationSection(name=section.name, exercises=items))
 
+    # Resolve human-readable names for the excluded ids (UUIDs in the graph).
+    excluded_names: dict[str, str] = {}
+    for eid in context.exclusion_list[:20]:
+        cached = hit_index.get(eid)
+        if cached:
+            excluded_names[eid] = cached.name
+            continue
+        node = await graph.get_node(NodeType.EXERCISE, eid)
+        excluded_names[eid] = node.properties.get("name", eid) if node else eid
+
     rec = Recommendation(
         id=str(uuid.uuid4()),
         member_id=state.member_id or "",
@@ -186,7 +197,7 @@ async def _generate_once(
         sections=sections,
         excluded=[
             SafetyExclusion(
-                exercise=ExerciseRef(id=eid, name=eid),
+                exercise=ExerciseRef(id=eid, name=excluded_names.get(eid, eid)),
                 reason="In retrieval-time exclusion list.",
                 rule="retrieval-filter",
             )

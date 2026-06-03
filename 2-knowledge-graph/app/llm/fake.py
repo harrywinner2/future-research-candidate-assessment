@@ -17,6 +17,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
 from pydantic import BaseModel
 
 from app.llm.client import LLMResponse
+from app.observability.trace import record_stage_usage as _record
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -52,6 +53,7 @@ class FakeLLM:
         self.calls.append({"kind": "complete", "prompt": prompt, "system": system})
         payload = self._resolve(prompt, schema=None)
         text = payload if isinstance(payload, str) else json.dumps(payload)
+        _record(_estimate_tokens(prompt), _estimate_tokens(text), self.model_id)
         return LLMResponse(
             text=text,
             model_id=self.model_id,
@@ -70,6 +72,8 @@ class FakeLLM:
             {"kind": "structured", "prompt": prompt, "schema": schema.__name__, "system": system}
         )
         payload = self._resolve(prompt, schema=schema)
+        _text = payload if isinstance(payload, str) else json.dumps(payload)
+        _record(_estimate_tokens(prompt), _estimate_tokens(_text), self.model_id)
         return schema.model_validate(payload)
 
     def _resolve(self, prompt: str, schema: Optional[Type[BaseModel]]) -> Any:

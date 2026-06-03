@@ -15,6 +15,7 @@ from typing import Optional, Type, TypeVar
 from pydantic import BaseModel
 
 from app.llm.client import LLMResponse, _strip_code_fences
+from app.observability.trace import record_stage_usage as _record_stage_usage
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -55,12 +56,10 @@ class OpenAILLM:
         choice = response.choices[0]
         text = choice.message.content or ""
         usage = getattr(response, "usage", None)
-        return LLMResponse(
-            text=text,
-            model_id=self.model_id,
-            tokens_prompt=getattr(usage, "prompt_tokens", 0) or 0,
-            tokens_completion=getattr(usage, "completion_tokens", 0) or 0,
-        )
+        pt = getattr(usage, "prompt_tokens", 0) or 0
+        ct = getattr(usage, "completion_tokens", 0) or 0
+        _record_stage_usage(pt, ct, self.model_id)
+        return LLMResponse(text=text, model_id=self.model_id, tokens_prompt=pt, tokens_completion=ct)
 
     async def structured_complete(
         self,
@@ -94,6 +93,12 @@ class OpenAILLM:
                 max_tokens=self._max_tokens,
             )
         text = response.choices[0].message.content or ""
+        usage = getattr(response, "usage", None)
+        _record_stage_usage(
+            getattr(usage, "prompt_tokens", 0) or 0,
+            getattr(usage, "completion_tokens", 0) or 0,
+            self.model_id,
+        )
         cleaned = _strip_code_fences(text)
         try:
             data = json.loads(cleaned)

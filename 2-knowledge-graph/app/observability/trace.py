@@ -59,6 +59,25 @@ def current_trace() -> Optional[Trace]:
     return _current_trace.get()
 
 
+def record_stage_usage(
+    prompt_tokens: int = 0, completion_tokens: int = 0, model_id: Optional[str] = None
+) -> None:
+    """Attribute token usage to the currently-active stage.
+
+    LLM clients call this after each completion. Because ``with_stage`` appends
+    its stage on entry, the last stage on the current trace is the one wrapping
+    the in-flight LLM call. No-op when there is no active trace (e.g. seeding).
+    """
+    trace = _current_trace.get()
+    if not trace or not trace.stages:
+        return
+    stage = trace.stages[-1]
+    stage.tokens_prompt = (stage.tokens_prompt or 0) + (prompt_tokens or 0)
+    stage.tokens_completion = (stage.tokens_completion or 0) + (completion_tokens or 0)
+    if model_id and not stage.model_id:
+        stage.model_id = model_id
+
+
 @contextlib.asynccontextmanager
 async def start_trace(
     store: TraceStore,
