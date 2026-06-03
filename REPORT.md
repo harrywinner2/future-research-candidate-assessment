@@ -4,7 +4,7 @@
 > presentation video, and is the continuity record if work is resumed in a fresh session.
 
 **Repo (submission):** https://github.com/harrywinner2/future-research-candidate-assessment
-**Live demo:** _(filled in after Railway deploy)_
+**Live demo:** https://future-coach-production.up.railway.app
 **Date started:** 2026-06-02
 
 ---
@@ -139,6 +139,17 @@ Legend: ✅ done · 🔄 in progress · ⬜ todo
   client-side fallback if the API errors.
 - ✅ Frontend tests (Vitest, 4/4 green): DB.init real-data mapping, injury-aware safety eval, app shell
   render, and navigation across 9 representative screens without crashing.
+- ✅ AI screens wired to the real backend: Coach Console (`/recommend`), Agent Console + Routing Tests
+  (real LLM router via the hub), Evaluations (`/eval/run`), System Trace (`/traces`). All with graceful
+  fallback to the local engine on error.
+- ✅ Dockerized: multi-stage image (Node builds SPA → Python serves SPA+API). `docker compose up` brings
+  up Neo4j + the app locally. Verified the single-service path serves SPA + real API + deep links.
+- ✅ **Deployed to Railway** (single service, in-memory graph seeded on boot, OpenAI gpt-4o-mini via
+  secret): https://future-coach-production.up.railway.app — health ok, 3 seeded members, live OpenAI
+  recommendation routed + generated + validated end-to-end.
+- 🔄 REPORT finalization (screen matrix + video outline below)
+- ⬜ (polish, optional) wire Why-drawer to `/explain`, Comparison Harness to dual `/recommend`,
+  Neo4j seed verified via live docker compose, resolve exclusion display names in the API payload
 - ⬜ Frontend: Vite scaffold + design system port (styles, icons, ui, store, api client)
 - ⬜ Frontend: 24 Knowledge-Graph screens
 - ⬜ Frontend: 8 Multi-Agent screens
@@ -147,11 +158,115 @@ Legend: ✅ done · 🔄 in progress · ⬜ todo
 - ⬜ Deploy to Railway
 - ⬜ Finalize REPORT + presentation outline
 
-## 6. Screen inventory → requirement coverage
+## 6. How to run
 
-_(Filled in as screens are built. Each maps to a spec section in `screens.md` and a requirement in the
-two ASSESSMENT files.)_
+**Live:** https://future-coach-production.up.railway.app (no setup; OpenAI-backed).
 
-## 7. Presentation video outline
+**Local — full stack with the real Neo4j database (assessment's one-command requirement):**
+```bash
+cd 2-knowledge-graph
+cp .env.example .env            # optional: set OPENAI_API_KEY + COACH_KG_LLM_PROVIDER=openai
+docker compose up -d --build    # Neo4j + app, seeded on boot
+open http://localhost:8000      # the UI (FastAPI serves the built SPA + API)
+```
 
-_(Filled in once the demo is live.)_
+**Local — frontend dev against the API (hot reload):**
+```bash
+cd 2-knowledge-graph
+COACH_KG_GRAPH_BACKEND=memory COACH_KG_LLM_PROVIDER=fake uvicorn app.main:app --reload  # :8000
+cd web && npm install && npm run dev     # :5173, proxies to :8000 via VITE_API_BASE
+```
+
+**Tests:** backend `pytest` (34) · frontend `cd web && npm test` (Vitest, 4). Both run fully offline
+(in-memory graph + FakeLLM).
+
+## 7. Screen inventory → requirement coverage
+
+31 screens, all reachable from the sidebar / command palette (⌘K). "Data" = where the screen's data
+comes from: **API** (live backend/DB), **API+derived** (real data, client-side assembly), or
+**fixture** (tasteful synthetic UI data, clearly labelled — for surfaces with no backing endpoint).
+
+### Knowledge-Graph platform (assessment #2)
+
+| Screen | screens.md § | Data | What it proves |
+|---|---|---|---|
+| Member Dashboard | 1 | API | Member context, injuries, equipment, graph health from the real graph |
+| Coach Console | 2 | **API** | Real `/recommend` (LangGraph hub → GraphRAG → safety → OpenAI → validator) + staged trace |
+| Recommendation Detail | 3 | API | Structured workout, exclusions, validation report, version footer |
+| Why Explanation Drawer | 4 | API+derived | Graph-path reasoning for include/skip (client renders real graph facts; `/explain` available) |
+| Graph Explorer | 5 | API+derived | Force-graph over the real member subgraph + safety neighbourhood |
+| Ingestion | 6 | API | `/ingest/signal` extraction preview → nodes/edges; synthetic-data guard |
+| Member Context Editor | 7 | API | Edit goals/equipment/injuries |
+| Exercise Library | 8 | **API** | All 50 exercises with member-aware safety labels (`/exercises?member_id`) |
+| Exercise Detail | 9 | API | Full metadata + member safety panel + bilateral pair |
+| Safe Swap Picker | 10 | API+derived | Safe alternatives by pattern/muscle, avoiding loaded joints |
+| API & Schema Explorer | 11 | API | Live endpoint list + payloads |
+| System Trace | 12 | **API** | Real recorded traces (`/traces`) with per-stage latency + tokens |
+| Evaluations | 13 | **API** | `/eval/run` drives the real hub; live pass/warn/fail per critical path |
+| Demo Walkthrough | 14 | scripted | Guided knee-injury → session → why flow |
+| Weekly Programming | 15 | API+derived | Microcycle view, volume/joint budgets |
+| History & Adherence | 16 | fixture | Longitudinal timeline (no history endpoint — labelled synthetic) |
+| Settings | 17 | **API** | Live `/settings` + `PUT /settings/llm` (provider/model/**key**) |
+| Prompt Inspector | 18 | **API** | Versioned `/prompts` catalogue with hashes + variables |
+| Schema & Ontology | 19 | **API** | `/graph/schema` node/edge catalogue + invariants |
+| Comparison Harness | 20 | API+derived | A/B configs with safety-divergence diff |
+| Conversations | 21 | API | `/sessions` store with recency window |
+| Cost & Performance | 22 | API+fixture | Real latency percentiles from `/metrics`; cost series labelled estimated |
+| Safety Policy Editor | 23 | **API** | Live `/safety/policy` (+levels, +PUT) |
+| Tradeoffs & Notes | 24 | fixture | In-product ADRs / cut list |
+
+### Multi-agent system (assessment #1)
+
+| Screen | screens.md § | Data | What it proves |
+|---|---|---|---|
+| Agent Console | MA-1 | **API** | Real **LLM structured-output routing** (RouterDecision) + routed sub-agent response |
+| Coach Answer Result | MA-2 | API | Dataset-grounded coaching answer |
+| Workout Generator Result | MA-3 | API | `search_exercises` tool results + no-results recovery |
+| Workout Logger Result | MA-4 | API | Real fuzzy match (`/log`); missing weight stays null |
+| Exercise Search Drawer | MA-5 | API | Tool result inspection |
+| Routing Tests | MA-6 | **API** | 5 prompts routed by the real LLM router; pass/fail vs expected |
+| StateGraph Topology | MA-7 | static | Hub graph + composed sub-agents + typed state |
+| Memory Inspector | MA-8 | API | Conversation window / eviction / pin (multi-turn memory) |
+
+### Requirement coverage (both ASSESSMENT files)
+
+| Requirement | Where |
+|---|---|
+| Knowledge graph in a graph DB + documented schema | Neo4j (compose) / in-memory adapter; `GET /graph/schema`; Schema & Ontology screen |
+| Ingestion pipeline (raw context → nodes/edges) | `app/ingestion/*`; Ingestion screen |
+| GraphRAG (graph traversal + vector) | `app/retrieval/graph_rag.py`; Coach Console trace panel |
+| Injury-aware, explainable generation | safety enforced at retrieval/generation/validation; Why drawer; live eval `injury_filtering` passes |
+| REST API, typed schemas | FastAPI + Pydantic; API Explorer; `/docs` |
+| Frontend demo | this whole app (31 screens) |
+| Dockerized one-command setup | `docker compose up` |
+| Test ≥2 critical paths | backend pytest (injury filter, retrieval, validator, router, logger, hub e2e, API) + `/eval/run` live + frontend Vitest |
+| "How I'd evaluate in production" | `2-knowledge-graph/README.md` §; Cost/Eval screens |
+| Hub = LangGraph StateGraph, typed state, explicit edges | `app/agents/hub.py`, `state.py`; Topology screen |
+| Sub-agents as composed graphs | `app/agents/{router,coach,generator,logger,explainer,safety_reviewer}.py` |
+| Routing via LLM structured output | `RouterDecision` structured output; Agent Console shows the parsed object |
+| Tools with Pydantic schemas | `app/agents/tools.py` |
+| Resilience (no results / invalid tool call) | validator correction; no-results recovery; Routing Tests |
+
+## 8. Presentation video outline
+
+Target ~4–6 min. Open on the live URL.
+
+1. **Hook (20s).** "One product, both take-homes: a coach-facing assistant where every injury-aware
+   recommendation is explained by a knowledge graph." Show the dashboard for Synth-Alex (active knee).
+2. **The graph is load-bearing (45s).** Graph Explorer → toggle safety neighbourhood → show
+   `Member → HAS_INJURY → knee → LOADS_JOINT ← Exercise`. Emphasise: this is why we can explain *why*.
+3. **Generate, live (60s).** Coach Console → "Build a lower-body session for this week." Watch the staged
+   trace (route → retrieve → expand → filter → generate → validate). Real OpenAI. Point at the excluded
+   knee-loaders and the right-rail retrieval/safety trace.
+4. **Explainability (40s).** Click "Why included / Why skipped" → graph path + member facts + the safety
+   rule that fired. This is the differentiator vs semantic search.
+5. **Safety holds up (40s).** Evaluations → Run all → `injury_filtering` PASSES live (no contraindicated
+   joint in the plan). Mention the 3-layer enforcement.
+6. **Multi-agent track (45s).** Agent Console → run the 5 example prompts; show the **parsed
+   RouterDecision** (LLM structured output), the ambiguous "Bench press." → CLARIFY, and the no-results
+   recovery. Routing Tests for the table. Topology for the StateGraph.
+7. **Production thinking (30s).** Settings (swap model/key), Prompt Inspector (versioned), Safety Policy
+   editor, System Trace (real per-stage latency/tokens), Cost dashboard. "This is the surface I'd tune
+   and monitor in production."
+8. **Close (20s).** Tradeoffs screen → what I cut and why. Mention: `docker compose up`, tests green,
+   synthetic-data-only banner, deployed on Railway.
