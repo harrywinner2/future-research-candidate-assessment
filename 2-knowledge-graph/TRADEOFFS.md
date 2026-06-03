@@ -7,7 +7,7 @@ What was implemented, what was deliberately cut, and what I'd build next.
 - **Knowledge graph** with a versioned, documented ontology (node + edge catalogue exposed at `GET /graph/schema`).
 - **Two graph backends behind one Protocol**: Neo4j for production, in-memory for tests. The same code path runs both.
 - **GraphRAG** combining vector search (over context signals and exercise descriptions) with graph traversal (safety neighbourhood + member-centred N-hop expansion), assembled into a token-budgeted context window.
-- **LangGraph hub** with typed state and explicit conditional edges. Sub-agents (router, coach, generator, logger, explainer, safety reviewer) are separate composable graphs.
+- **LangGraph hub** — a `StateGraph` with typed state (`HubState`) and explicit conditional edges. Sub-agents (router, coach, generator, logger, explainer, safety reviewer) are separate, independently-testable composable modules dispatched by the hub (not inlined). See the architecture note in `../1-multi-agent/IMPLEMENTATION.md` for why each sub-agent is a module rather than its own compiled sub-graph at this scope.
 - **Safety enforced at three layers** — retrieval labels, generation prompt exclusion list, post-generation validator with bounded retry budget.
 - **Versioned `SafetyPolicy`** with configurable conservatism levels (lenient / standard / strict / max). Every recommendation records the policy version used.
 - **Versioned prompt template catalog** — each template has an id, version, and hash recorded in the trace.

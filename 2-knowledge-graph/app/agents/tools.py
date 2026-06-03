@@ -26,12 +26,25 @@ from app.schemas.exercise import Exercise
 
 
 class SearchExercisesInput(BaseModel):
-    muscle_groups: List[str] = Field(default_factory=list)
-    equipment_available: List[str] = Field(default_factory=list)
-    movement_patterns: List[str] = Field(default_factory=list)
-    exclude_ids: List[str] = Field(default_factory=list)
-    excluded_joints: List[str] = Field(default_factory=list, description="Joints to avoid loading.")
-    limit: int = 10
+    """Input schema for the ``search_exercises`` tool (dataset filter)."""
+
+    muscle_groups: List[str] = Field(
+        default_factory=list, description="Target muscle groups to match, e.g. ['quads', 'glutes']."
+    )
+    equipment_available: List[str] = Field(
+        default_factory=list,
+        description="Equipment the member can use; exercises needing anything else are filtered out.",
+    )
+    movement_patterns: List[str] = Field(
+        default_factory=list, description="Desired movement patterns, e.g. ['hip hinge', 'squat']."
+    )
+    exclude_ids: List[str] = Field(
+        default_factory=list, description="Exercise ids to omit (already chosen or rejected)."
+    )
+    excluded_joints: List[str] = Field(
+        default_factory=list, description="Joints to avoid loading (from the member's active injuries)."
+    )
+    limit: int = Field(default=10, ge=1, le=50, description="Maximum number of hits to return.")
 
 
 class SearchExerciseHit(BaseModel):
@@ -89,8 +102,10 @@ async def search_exercises(client: GraphClient, args: SearchExercisesInput) -> L
 
 
 class FuzzyMatchInput(BaseModel):
-    query: str
-    limit: int = 5
+    """Input schema for the ``fuzzy_match_exercise`` tool (logger name resolution)."""
+
+    query: str = Field(description="Free-text exercise name from the user, e.g. 'bench press'.")
+    limit: int = Field(default=5, ge=1, le=25, description="Maximum number of candidate matches.")
 
 
 class FuzzyMatch(BaseModel):
@@ -119,5 +134,11 @@ async def fuzzy_match_exercise(client: GraphClient, args: FuzzyMatchInput) -> Li
 
 
 class BuildWorkoutInput(BaseModel):
-    sections: dict
-    notes: Optional[str] = None
+    """Input schema for ``build_workout`` — the structured contract the generator
+    sub-agent emits (warmup / main / cooldown with sets, reps, rest)."""
+
+    sections: dict = Field(
+        description="Mapping of section name (warmup/main/cooldown) to a list of "
+        "{exercise_id, sets, reps, duration_seconds, rest_seconds, load_target} entries.",
+    )
+    notes: Optional[str] = Field(default=None, description="Optional coaching notes for the session.")
