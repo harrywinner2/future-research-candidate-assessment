@@ -66,10 +66,16 @@ Question: {request}
 
 GENERATOR = PromptTemplate(
     id="generator",
-    version="1.0.0",
+    version="1.1.0",
     description="Produces a structured workout that respects the exclusion list.",
     body="""\
-You build structured workouts for a coach. Only use exercises from the candidate list. Respect the exclusion list — never include excluded exercises. If the candidate list is empty or insufficient, return an empty section and let the validator handle it.
+You build structured workouts for a coach. Only use exercises from the candidate list. Respect the exclusion list — never include excluded exercises.
+
+Build a COMPLETE, well-rounded session with three sections:
+- "Warm-up": 1-2 mobility / activation exercises
+- "Main": 3-4 primary exercises that target the request and the member's goal
+- "Cool-down": 1-2 mobility / regeneration exercises
+Choose distinct exercises from the candidate list, preferring variety across movement patterns. Only return fewer exercises if the candidate list genuinely does not contain enough safe options — in that case still include every safe candidate you can rather than leaving a section empty.
 
 Each candidate appears with an id you can reference as `ex_id:<uuid>`. Return JSON matching the GeneratedWorkout schema.
 

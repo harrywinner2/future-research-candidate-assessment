@@ -22,6 +22,10 @@ filters.push(`${labels.join('')}amix=inputs=${tl.scenes.length}:normalize=0:drop
 // Gentle limiter so summed peaks never clip.
 filters.push(`[mix]alimiter=limit=0.97[aout]`);
 
+// Trim the output to just after the last narration ends (drops any frozen tail).
+const last = tl.scenes[tl.scenes.length - 1];
+const endSec = (last.startMs / 1000) + (last.audioDur || 5) + 1.5;
+
 const args = [
   '-y',
   '-i', video,
@@ -29,6 +33,7 @@ const args = [
   '-filter_complex', filters.join(';'),
   '-map', '0:v',
   '-map', '[aout]',
+  '-t', endSec.toFixed(2),
   '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p',
   '-c:a', 'aac', '-b:a', '192k',
   '-movflags', '+faststart',

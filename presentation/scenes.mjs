@@ -38,8 +38,9 @@ export const SCENES = [
     voice:
       "Here's the knowledge graph for this member, and this is the real differentiator. The graph is not " +
       "semantic search with extra steps. Injuries connect to joints, joints connect to the exercises that load " +
-      "them, and equipment and goals branch off the member. When we ask for a workout, the system traverses " +
-      "these relationships to decide what's safe — and to prove why.",
+      "them, and equipment and goals branch off the member. So the system can traverse a path like: member, " +
+      "has-injury, knee, loaded-by, exercise — and exclude exactly those movements. When we ask for a workout, " +
+      "it walks these relationships to decide what's safe, and crucially, to prove why afterwards.",
     async run(h) {
       await h.go('Graph Explorer');
       await h.wait(5000); // let the force layout settle + animate
@@ -65,7 +66,9 @@ export const SCENES = [
       "Now the core flow. I'll ask the coach console to build a lower-body session. Watch the staged pipeline: " +
       "it routes the request, retrieves the relevant slice of the graph, expands the safety neighbourhood, filters " +
       "unsafe exercises, generates with OpenAI, and validates the output. This is the real LangGraph hub running " +
-      "end to end — and it keeps every knee-loading exercise out of the plan.",
+      "end to end. On the right you can see the retrieval and safety trace for this exact response — the graph " +
+      "facts it used and the exercises it excluded. And notice the result: every knee-loading movement is kept " +
+      "out of the plan, automatically.",
     async run(h) {
       await h.go('Coach Console');
       await h.wait(1800);
@@ -73,7 +76,7 @@ export const SCENES = [
       await h.wait(700);
       await h.enter();
       await h.waitText('Open full recommendation', 50000);
-      await h.wait(2500);
+      await h.wait(3000);
     },
   },
   {
@@ -91,7 +94,8 @@ export const SCENES = [
       await h.click('Why'); // first Why button in the excluded list
       await h.waitText('Graph path used', 12000).catch(() => {});
       await h.waitText('AI EXPLANATION', 10000).catch(() => {});
-      await h.wait(4000); // let the live LLM narration arrive
+      await h.wait(4500); // let the live LLM narration arrive
+      await h.esc(); // close the drawer so the next scene navigates cleanly
     },
   },
   {
@@ -101,6 +105,7 @@ export const SCENES = [
       "end to end and asserts that no recommended exercise loads a contraindicated joint. It passes, live. The same " +
       "harness also covers explainability, thin-retrieval clarification, validator correction, and no-results recovery.",
     async run(h) {
+      await h.esc(); // ensure any drawer/scrim from the previous scene is closed
       await h.go('Evaluations');
       await h.wait(2000);
       await h.click('Run'); // first per-scenario Run = injury_filtering
@@ -155,7 +160,8 @@ export const SCENES = [
     voice:
       "The contracts are clean and documented. The ontology lists twelve node types, thirteen edge types, and the " +
       "invariants the graph must satisfy. And the whole system is tunable — provider and model, retrieval depth, " +
-      "safety conservatism, versioned prompts — all switchable at runtime, with cost and latency tracked per stage.",
+      "safety conservatism, and versioned prompts are all switchable at runtime from the settings screen, no " +
+      "redeploy required. Cost and latency are tracked per stage, so you can see exactly where time and tokens go.",
     async run(h) {
       await h.go('Schema & Ontology');
       await h.wait(3500);

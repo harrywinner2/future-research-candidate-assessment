@@ -105,6 +105,7 @@ const h = {
     await page.type(sel, text, { delay: 28 });
   },
   async enter() { await page.keyboard.press('Enter'); },
+  async esc() { await page.keyboard.press('Escape'); await sleep(350); },
   async waitText(substr, timeout = 20000) {
     return page.waitForFunction((t) => document.body.innerText.toLowerCase().includes(t), { timeout }, substr.toLowerCase());
   },
@@ -131,7 +132,11 @@ for (const scene of SCENES) {
   const startMs = Date.now() - recStart;
   console.log(`▶ ${scene.id} @ ${(startMs / 1000).toFixed(1)}s`);
   try {
-    await scene.run(h);
+    // Hard cap so a hung action can never freeze the recording (the tail bug).
+    await Promise.race([
+      scene.run(h),
+      sleep(58000).then(() => { throw new Error('scene action timeout'); }),
+    ]);
   } catch (e) {
     console.log(`  ! ${scene.id} action error (continuing): ${e.message}`);
   }
