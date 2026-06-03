@@ -67,17 +67,67 @@ async def member_detail(
     node = await graph.get_node(NodeType.MEMBER, member_id)
     if not node:
         raise HTTPException(404, f"Member {member_id} not found.")
-    injuries = await member_active_injuries(graph, member_id)
     equipment = await member_equipment(graph, member_id)
+
+    # Goals
+    goal_edges = await graph.get_edges(
+        source_type=NodeType.MEMBER, source_key=member_id, edge_type=EdgeType.HAS_GOAL
+    )
+    goals: List[dict[str, Any]] = []
+    for e in goal_edges:
+        g = await graph.get_node(NodeType.GOAL, e.target_key)
+        if g:
+            goals.append({"label": g.properties.get("label", e.target_key), "priority": g.properties.get("priority")})
+
+    # Preferences
+    pref_edges = await graph.get_edges(
+        source_type=NodeType.MEMBER, source_key=member_id, edge_type=EdgeType.PREFERS
+    )
+    preferences: List[dict[str, Any]] = []
+    for e in pref_edges:
+        p = await graph.get_node(NodeType.PREFERENCE, e.target_key)
+        if p:
+            preferences.append(
+                {"label": p.properties.get("label", e.target_key), "polarity": p.properties.get("polarity", "prefer")}
+            )
+
+    # Injuries (all statuses) with their affected joints
+    inj_edges = await graph.get_edges(
+        source_type=NodeType.MEMBER, source_key=member_id, edge_type=EdgeType.HAS_INJURY
+    )
+    injuries: List[dict[str, Any]] = []
+    for e in inj_edges:
+        i = await graph.get_node(NodeType.INJURY, e.target_key)
+        if not i:
+            continue
+        joint_edges = await graph.get_edges(
+            source_type=NodeType.INJURY, source_key=i.key, edge_type=EdgeType.AFFECTS_JOINT
+        )
+        injuries.append(
+            {
+                "id": i.key,
+                "label": i.properties.get("label"),
+                "severity": i.properties.get("severity"),
+                "status": i.properties.get("status", "active"),
+                "noted_at": i.properties.get("noted_at"),
+                "joints": [je.target_key for je in joint_edges],
+            }
+        )
+
     return {
         "id": node.key,
         "name": node.properties.get("name", node.key),
         "persona": node.properties.get("persona"),
         "skill_level": node.properties.get("skill_level"),
         "training_days_per_week": node.properties.get("training_days_per_week"),
+        "notes": node.properties.get("notes"),
+        "goals": goals,
+        "preferences": preferences,
+        "injuries": injuries,
         "active_injuries": [
-            {"id": i.key, "label": i.properties.get("label"), "severity": i.properties.get("severity")}
+            {"id": i["id"], "label": i["label"], "severity": i["severity"]}
             for i in injuries
+            if i["status"] == "active"
         ],
         "equipment": equipment,
     }

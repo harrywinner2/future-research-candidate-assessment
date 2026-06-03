@@ -123,7 +123,22 @@ Legend: ✅ done · 🔄 in progress · ⬜ todo
 - ✅ Backend: CORS + static SPA serving (`_mount_frontend`, no-op when build absent)
 - ✅ Backend: support endpoints `/prompts`, `/safety/policy`(+policies,+PUT), `/metrics`, `/eval/scenarios`+`/eval/run`, `/sessions`
 - ✅ Backend smoke: all new endpoints 200/201; live `/eval/run injury_filtering` PASSED; key loaded but never returned
+- ✅ Backend: enriched `GET /members/{id}` with goals/preferences/injuries(+joints) for the frontend
 - ⬜ Backend: confirm Neo4j seed via docker (deferred to Docker/deploy phase)
+- ✅ Frontend scaffold: Vite + React, `web/` under `2-knowledge-graph/`. Builds clean (368 KB JS / 17 KB CSS)
+- ✅ Frontend port mechanics: **window-shim** — the mock authored every component with
+  `React.createElement` against a global `React` + `window.*` registration. We expose npm React via
+  `globals.js`, import each ported module in order in `main.jsx`, and swap only `data.js`/`engine.jsx`
+  for real-API adapters. Preserves the finished design verbatim. (Tweaks design-editor excluded.)
+- ✅ Data layer (`lib/data.js`): synthetic data kept as **offline/degraded fallback**; `DB.init()` fetches
+  the real backend (exercises, members+detail, subgraph counts, settings, schema, prompts, safety,
+  scenarios, metrics) and overwrites the screen data shapes in place.
+- ✅ Engine layer (`lib/engine.jsx`): sync helpers operate on real data; added async backend methods
+  (`recommend`, `runAgent`, `explainLive`, `logWorkoutLive`, `retrieveLive`, `runEvalLive`) + a
+  `/recommend`→screen-shape mapper. Coach Console now generates via the **real LangGraph hub** with a
+  client-side fallback if the API errors.
+- ✅ Frontend tests (Vitest, 4/4 green): DB.init real-data mapping, injury-aware safety eval, app shell
+  render, and navigation across 9 representative screens without crashing.
 - ⬜ Frontend: Vite scaffold + design system port (styles, icons, ui, store, api client)
 - ⬜ Frontend: 24 Knowledge-Graph screens
 - ⬜ Frontend: 8 Multi-Agent screens
