@@ -109,9 +109,46 @@ def build_llm(settings: Optional[Settings] = None) -> LLMClient:
             temperature=settings.llm_temperature,
             max_tokens=settings.llm_max_tokens,
         )
+    if settings.llm_provider == "openai":
+        from app.llm.openai_llm import OpenAILLM
+
+        return OpenAILLM(
+            api_key=settings.openai_api_key,
+            model_id=settings.llm_model,
+            temperature=settings.llm_temperature,
+            max_tokens=settings.llm_max_tokens,
+        )
     from app.llm.fake import FakeLLM
 
     return FakeLLM(model_id=settings.llm_model)
+
+
+def build_llm_from(
+    provider: str,
+    model_id: str,
+    *,
+    temperature: float = 0.2,
+    max_tokens: int = 2048,
+    api_key: str = "",
+) -> "LLMClient":
+    """Build an LLM client from explicit parameters.
+
+    Used by the runtime Settings endpoint so a coach can switch provider/model/key
+    without restarting the process. ``api_key`` is held in-process only.
+    """
+    if provider == "anthropic":
+        return AnthropicLLM(
+            api_key=api_key, model_id=model_id, temperature=temperature, max_tokens=max_tokens
+        )
+    if provider == "openai":
+        from app.llm.openai_llm import OpenAILLM
+
+        return OpenAILLM(
+            api_key=api_key, model_id=model_id, temperature=temperature, max_tokens=max_tokens
+        )
+    from app.llm.fake import FakeLLM
+
+    return FakeLLM(model_id=model_id)
 
 
 def _strip_code_fences(text: str) -> str:

@@ -15,7 +15,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 GraphBackend = Literal["memory", "neo4j"]
-LLMProvider = Literal["fake", "anthropic"]
+LLMProvider = Literal["fake", "anthropic", "openai"]
 EmbeddingsProvider = Literal["hash", "sentence-transformers"]
 SafetyLevel = Literal["lenient", "standard", "strict", "max"]
 
@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.2
     llm_max_tokens: int = 2048
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
 
     # --- Embeddings -----------------------------------------------------
     embeddings_provider: EmbeddingsProvider = "hash"

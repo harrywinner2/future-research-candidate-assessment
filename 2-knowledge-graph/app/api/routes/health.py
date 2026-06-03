@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.api.dependencies import get_app_settings, get_graph_client, get_policy
 from app.config import Settings
@@ -23,16 +23,26 @@ async def health(graph: GraphClient = Depends(get_graph_client)) -> dict[str, An
 
 @router.get("/settings")
 async def settings_view(
+    request: Request,
     settings: Settings = Depends(get_app_settings),
     policy: SafetyPolicy = Depends(get_policy),
 ) -> dict[str, Any]:
+    # Prefer the runtime LLM config (mutated by PUT /settings/llm) over env defaults.
+    rt = getattr(request.app.state, "llm_runtime", None) or {
+        "provider": settings.llm_provider,
+        "model": settings.llm_model,
+        "temperature": settings.llm_temperature,
+        "max_tokens": settings.llm_max_tokens,
+    }
+    keys = getattr(request.app.state, "llm_keys", {})
     return {
         "graph_backend": settings.graph_backend,
         "llm": {
-            "provider": settings.llm_provider,
-            "model": settings.llm_model,
-            "temperature": settings.llm_temperature,
-            "max_tokens": settings.llm_max_tokens,
+            "provider": rt["provider"],
+            "model": rt["model"],
+            "temperature": rt["temperature"],
+            "max_tokens": rt["max_tokens"],
+            "key_present": {p: bool(keys.get(p)) for p in ("openai", "anthropic")},
         },
         "embeddings": {
             "provider": settings.embeddings_provider,
