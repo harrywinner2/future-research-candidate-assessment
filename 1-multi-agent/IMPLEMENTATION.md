@@ -15,7 +15,7 @@
 | Hub is a LangGraph `StateGraph` with typed state + explicit edges | `app/agents/hub.py` (`build_hub` → `StateGraph(HubState)`, entry `route → retrieve → dispatch → final → END`), typed state in `app/agents/state.py` (`HubState`, `RouterDecision`) |
 | Routing uses **LLM structured output** (not regex/keywords) | `app/agents/router.py` → `llm.structured_complete(prompt, RouterDecision)`; the parsed `RouterDecision{route, confidence, rationale}` is rendered live in the Agent Console's router panel |
 | Ambiguous input handled with a confidence score / fallback | `Route.CLARIFY` + a confidence field; router prompt prefers `CLARIFY` under 0.5; the hub emits a clarifying question instead of guessing |
-| Sub-agents composed into the hub (not inlined) | Separate modules: `router.py`, `coach.py`, `generator.py`, `logger.py`, `explainer.py`, `safety_reviewer.py`, dispatched by the hub's `dispatch` node (see architecture note below) |
+| Sub-agents are **separate graphs** composed into the hub (not inlined) | `app/agents/hub.py` compiles each sub-agent (`coach`, `workout_generate`, `workout_log`, `explainer`) as its **own `StateGraph`** via `_make_subagent_graph(...)` and composes them as nodes of the hub graph; conditional edges route `retrieve → {coach\|generate\|log\|explain\|clarify}`. Implemented in `router.py`/`coach.py`/`generator.py`/`logger.py`/`explainer.py`/`safety_reviewer.py` |
 | Workout Generator: `search_exercises` + `build_workout` | `app/agents/tools.py` (`SearchExercisesInput` / `search_exercises`; `BuildWorkoutInput` is the structured-output contract the generator emits) |
 | Workout Logger: parse + fuzzy match, JSON out | `app/agents/logger.py` + `fuzzy_match_exercise` (rapidfuzz); missing weight stays `null`, never invented |
 | Tools have Pydantic input schemas with field descriptions | `app/agents/tools.py` (all input fields carry `Field(description=...)`) |
@@ -38,15 +38,25 @@ log, the ambiguous "Bench press.", and the no-results "rowing machine + sled"). 
 the **parsed `RouterDecision`** (route, confidence, rationale, StateGraph path) — evidence that routing
 used structured output. **Routing Tests** runs all five through the real router and scores them.
 
-## Architecture note (tradeoff, per "make a reasonable decision and document it")
+## Architecture
 
-The **hub** is the `StateGraph` (typed `HubState`, explicit conditional edges). Sub-agents are
-**separate, independently-testable modules** invoked by the hub's `dispatch` node — they are not inlined
-into the hub function (each has its own file, prompt template, and tests). I deliberately kept them as
-composable async units rather than wrapping each in its own *compiled* `StateGraph`: at this scope a
-per-sub-agent graph adds ceremony without changing behaviour or testability, and the hard requirement —
-a typed `StateGraph` with explicit edges — is met at the hub level. Promoting each sub-agent to its own
-compiled sub-graph is a clean, mechanical follow-up if a deployment wants per-sub-agent graph telemetry.
+The **hub** is a `StateGraph` over a typed `HubState` with explicit edges:
+
+```
+__start__ → route → retrieve ──(conditional on RouterDecision.route)──►  coach
+                                                                          generate
+                                                                          log
+                                                                          explain
+                                                                          clarify ─► __end__
+            coach / generate / log / explain ─► final (safety review) ─► __end__
+```
+
+Each of **coach / workout_generate / workout_log / explainer is its own compiled `StateGraph`**
+(`_make_subagent_graph` in `hub.py`) composed into the hub as a node — so sub-agents are *separate
+graphs composed into the hub*, not inlined functions. They live in their own modules with their own
+versioned prompt templates and tests. A handwritten fallback (`_fallback_run`) preserves identical
+behaviour if `langgraph` is ever unavailable. The `final` node is the shared safety-review gate that
+runs after any generating route.
 
 ## How I would evaluate this multi-agent system in production
 
