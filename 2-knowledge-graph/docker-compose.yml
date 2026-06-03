@@ -22,6 +22,8 @@ services:
       retries: 10
       start_period: 30s
 
+  # The api image is multi-stage: it builds the React frontend and serves both
+  # the SPA and the REST API on port 8000. Visit http://localhost:8000 for the UI.
   api:
     build: .
     container_name: coach-kg-api
@@ -32,8 +34,11 @@ services:
       COACH_KG_NEO4J_URI: bolt://neo4j:7687
       COACH_KG_NEO4J_USER: neo4j
       COACH_KG_NEO4J_PASSWORD: coach-kg-dev
+      # Default fake (offline, no key). Set COACH_KG_LLM_PROVIDER=openai + OPENAI_API_KEY
+      # in a local .env to use real OpenAI; the Settings screen can also switch at runtime.
       COACH_KG_LLM_PROVIDER: ${COACH_KG_LLM_PROVIDER:-fake}
-      COACH_KG_LLM_MODEL: ${COACH_KG_LLM_MODEL:-claude-haiku-4-5-20251001}
+      COACH_KG_LLM_MODEL: ${COACH_KG_LLM_MODEL:-gpt-4o-mini}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       COACH_KG_EMBEDDINGS_PROVIDER: ${COACH_KG_EMBEDDINGS_PROVIDER:-hash}
       COACH_KG_SEED_ON_BOOT: "true"

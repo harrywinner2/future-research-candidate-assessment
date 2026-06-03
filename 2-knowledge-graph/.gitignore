@@ -20,3 +20,6 @@ htmlcov/
 *.log
 neo4j-data/
 neo4j-logs/
+
+# Generated frontend build copied in for single-service serving
+app/static/
