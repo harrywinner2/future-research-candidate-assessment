@@ -1,6 +1,6 @@
 /* FUTURE — core screens: Dashboard, Members, Context Editor, WorkoutCard, DrawerRouter. */
 (function () {
-  const { useState, useMemo } = React;
+  const { useState, useMemo, useEffect } = React;
   const Icon = window.Icon, DB = window.DB, ENGINE = window.ENGINE;
   const { useStore, Btn, IconBtn, Chip, SafetyBadge, Avatar, Card, MetaPanel, PageHead, Stat, EmptyState, Drawer, Field, useCopy, VersionFooter } = window;
 
@@ -265,22 +265,53 @@
   }
 
   function WhyDrawer({ data, onClose }) {
-    const { go, openDrawer } = useStore();
+    const { go, openDrawer, member: storeMember } = useStore();
     const copy = useCopy();
     const { ex, member, kind } = data;
     const why = kind === 'included' ? (data.why || ENGINE.buildWhy(ex, member)) : ENGINE.buildWhySkipped(ex, member);
     const skipped = kind !== 'included';
+    const action = skipped ? 'skipped' : 'included';
+
+    // Hybrid explainability: the graph path + facts below are the deterministic,
+    // auditable evidence (computed from the real graph, instant). In parallel we
+    // ask the backend /explain (LLM explainer) to *narrate* that evidence in
+    // natural language. The graph-grounded instant text is the guaranteed fallback.
+    const [ai, setAi] = useState({ state: ex ? 'loading' : 'skip', text: null });
+    useEffect(() => {
+      if (!ex || !member) return;
+      let on = true;
+      const req = `Why did you ${action} ${ex.name} for this member?`;
+      ENGINE.explainLive(member, ex.id, action, req)
+        .then(p => { if (on) setAi({ state: (p && p.explanation) ? 'done' : 'empty', text: p && p.explanation }); })
+        .catch(() => { if (on) setAi({ state: 'error', text: null }); });
+      return () => { on = false; };
+    }, [ex && ex.id, member && member.id, action]);
+
+    const aiNarration = ai.state === 'done' && ai.text;
+
     return React.createElement(Drawer, { title: skipped ? 'Why skipped' : 'Why included', sub: ex?.name || data.node?.label, onClose,
       foot: React.createElement('div', { className: 'row gap8' },
         React.createElement(Btn, { size: 'sm', icon: 'graph', onClick: () => { onClose(); go('graph'); } }, 'Open in graph'),
         ex && React.createElement(Btn, { size: 'sm', variant: 'ghost', icon: 'swap', onClick: () => { openDrawer('swap', { ex, member }); } }, 'Find alternatives'),
-        React.createElement(Btn, { size: 'sm', variant: 'ghost', icon: 'copy', onClick: () => copy(why.plain, 'Explanation copied') }, 'Copy')) },
+        React.createElement(Btn, { size: 'sm', variant: 'ghost', icon: 'copy', onClick: () => copy(aiNarration || why.plain, 'Explanation copied') }, 'Copy')) },
       React.createElement('div', { className: 'col gap16' },
         React.createElement('div', null,
           React.createElement('div', { className: 'sec-title mb8' }, 'Decision'),
           React.createElement('div', { className: 'card', style: { padding: 14, background: skipped ? 'var(--danger-bg)' : 'var(--safe-bg)' } },
             React.createElement('div', { className: 'fs14 fw6', style: { color: skipped ? 'var(--danger)' : 'var(--safe)' } }, skipped ? 'Skipped ' + ex.name : 'Included ' + ex.name),
-            React.createElement('div', { className: 'fs13 mt8', style: { color: 'var(--ink-1)' } }, why.plain))),
+            // Graph-grounded reason (always shown, instant).
+            React.createElement('div', { className: 'fs13 mt8', style: { color: 'var(--ink-1)' } }, why.plain),
+            // LLM narration of that evidence, when it arrives.
+            ex && React.createElement('div', { className: 'mt12', style: { borderTop: '1px solid var(--line-soft)', paddingTop: 10 } },
+              React.createElement('div', { className: 'row gap6 center mb6' },
+                React.createElement(Icon, { name: 'sparkle', size: 12, style: { color: 'var(--accent)' } }),
+                React.createElement('span', { className: 'fs10 fw7', style: { color: 'var(--accent-ink)', letterSpacing: '.04em' } }, 'AI EXPLANATION'),
+                ai.state === 'loading' && React.createElement('span', { className: 'fs10 faint' }, '· narrating…')),
+              ai.state === 'loading'
+                ? React.createElement('div', { className: 'fs12 faint', style: { fontStyle: 'italic' } }, 'Asking the explainer to narrate the graph evidence…')
+                : aiNarration
+                  ? React.createElement('div', { className: 'fs13', style: { color: 'var(--ink-1)', lineHeight: 1.55 } }, aiNarration)
+                  : React.createElement('div', { className: 'fs12 faint' }, 'Live narration unavailable — the graph-grounded reason above stands on its own.')))),
         React.createElement('div', null,
           React.createElement('div', { className: 'sec-title mb8' }, 'Graph path used'),
           React.createElement('div', { className: 'card mono fs12', style: { padding: 14, lineHeight: 1.8, color: 'var(--accent-ink)' } }, why.path)),

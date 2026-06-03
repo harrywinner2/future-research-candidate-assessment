@@ -254,8 +254,11 @@
     return payload;
   }
 
-  async function explainLive(member, exerciseId, action = 'skipped') {
-    return API().explain({ request: `why ${action} ${exerciseId}`, member_id: member.id, exercise_id: exerciseId, action });
+  async function explainLive(member, exerciseId, action = 'skipped', request = null) {
+    return API().explain({
+      request: request || `Why did you ${action} this exercise for this member?`,
+      member_id: member.id, exercise_id: exerciseId, action,
+    });
   }
 
   async function logWorkoutLive(text, member) {
